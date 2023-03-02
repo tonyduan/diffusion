@@ -160,9 +160,7 @@ $$
 
 This is the most important result on this page.
 
-**Proof**.
-
-Observe that we can re-write $q(\mathbf{x}_t|\mathbf{x}_{t-1})$ as the following.
+**Proof**. Observe that we can re-write $q(\mathbf{x}_t|\mathbf{x}_{t-1})$ as the following.
 
 $$
 \begin{align*}

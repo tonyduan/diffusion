@@ -5,10 +5,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import torch.optim as optim
-import torch.nn.functional as F
 
 from src.blocks import FFN
-from src.models import DiffusionModel, TargetType, SigmaType
+from src.models import DiffusionModel, DiffusionModelConfig
 
 
 def gen_data(n=512, d=48):
@@ -35,8 +34,11 @@ if __name__ == "__main__":
         num_timesteps=100,
         nn_module=nn_module,
         input_shape=(48,),
-        target_type=TargetType.PRED_X_0,
-        sigma_type=SigmaType.UPPER_BOUND,
+        config=DiffusionModelConfig(
+            target_type="pred_x_0",
+            sigma_type="upper_bound",
+            noise_schedule_type="cosine",
+        ),
     )
 
     optimizer = optim.Adam(model.parameters(), lr=0.001)

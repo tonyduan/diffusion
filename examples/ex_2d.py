@@ -5,10 +5,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import torch.optim as optim
-import torch.nn.functional as F
 
 from src.blocks import FFN
-from src.models import DiffusionModel, TargetType, SigmaType
+from src.models import DiffusionModel, DiffusionModelConfig
 
 
 def gen_mixture_data(n=512):
@@ -37,8 +36,7 @@ if __name__ == "__main__":
         num_timesteps=10,
         nn_module=nn_module,
         input_shape=(2,),
-        target_type=TargetType.PRED_EPS,
-        sigma_type=SigmaType.UPPER_BOUND,
+        config=DiffusionModelConfig(),
     )
 
     optimizer = optim.Adam(model.parameters(), lr=0.001)

@@ -7,10 +7,9 @@ import numpy as np
 from sklearn.datasets import fetch_openml
 import torch
 import torch.optim as optim
-import torch.nn.functional as F
 
 from src.blocks import UNet
-from src.models import DiffusionModel, TargetType, SigmaType
+from src.models import DiffusionModel, DiffusionModelConfig
 
 
 if __name__ == "__main__":
@@ -43,8 +42,11 @@ if __name__ == "__main__":
         num_timesteps=500,
         nn_module=nn_module,
         input_shape=(1, 32, 32,),
-        target_type=TargetType.PRED_X_0,
-        sigma_type=SigmaType.UPPER_BOUND,
+        config=DiffusionModelConfig(
+            target_type="pred_x_0",
+            sigma_type="upper_bound",
+            noise_schedule_type="cosine",
+        ),
     )
     model = model.to(args.device)
 
@@ -93,5 +95,5 @@ if __name__ == "__main__":
 
     plt.imshow(raster, vmin=0, vmax=255)
     plt.axis("off")
-    fig.tight_layout()
-    fig.savefig("./examples/ex_mnist.png")
+    plt.tight_layout()
+    plt.savefig("./examples/ex_mnist.png")
