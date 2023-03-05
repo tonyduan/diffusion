@@ -18,7 +18,7 @@ This codebase provides a *minimalist* re-production of the MNIST example below.
 
 It clocks in at well under 500 LOC.
 
-![MNIST](examples/ex_mnist_crop.png)
+![MNIST](examples/ex_mnist.png)
 
 (Left: MNIST groundtruth. Right: MNIST sampling starting from random noise).
 
@@ -45,6 +45,7 @@ Code below is copied from the MNIST file in the `examples/` directory, omitting 
             target_type="pred_x_0",
             sigma_type="upper_bound",
             noise_schedule_type="cosine",
+            loss_type="l2",
         ),
     )
 

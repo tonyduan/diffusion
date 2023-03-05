@@ -14,11 +14,13 @@ class DiffusionModelConfig:
     target_type: str = "pred_eps"
     sigma_type: str = "upper_bound"
     noise_schedule_type: str = "linear"
+    loss_type: str = "l2"
 
     def __post_init__(self):
         assert self.target_type in ("pred_x_0", "pred_eps")
         assert self.sigma_type in ("lower_bound", "upper_bound")
         assert self.noise_schedule_type in ("linear", "cosine")
+        assert self.loss_type in ("l1", "l2")
 
 
 class DiffusionModel(nn.Module):
@@ -37,6 +39,7 @@ class DiffusionModel(nn.Module):
         self.target_type = config.target_type
         self.sigma_type = config.sigma_type
         self.noise_schedule_type = config.noise_schedule_type
+        self.loss_type = config.loss_type
 
         # Input shape must be either (c,) or (c, h, w)
         assert len(input_shape) in (1, 3)
@@ -58,7 +61,7 @@ class DiffusionModel(nn.Module):
         """
         Returns
         -------
-        loss: (bsz,)
+        loss: (bsz, *input_shape)
         """
         bsz = len(x)
         t_sample = torch.randint(1, self.num_timesteps + 1, size=(bsz,), device=x.device)
@@ -69,9 +72,13 @@ class DiffusionModel(nn.Module):
         )
         pred_target = self.nn_module(x_t, t_sample)
         if self.target_type == "pred_x_0":
-            loss = torch.mean((x - pred_target) ** 2, dim=1)
+            gt_target = x
         if self.target_type == "pred_eps":
-            loss = torch.mean((eps - pred_target) ** 2, dim=1)
+            gt_target = eps
+        if self.loss_type == "l2":
+            loss = 0.5 * (gt_target - pred_target) ** 2
+        if self.loss_type == "l1":
+            loss = torch.abs(gt_target - pred_target)
         return loss
 
     @torch.no_grad()
@@ -113,10 +120,13 @@ class DiffusionModel(nn.Module):
                     x - torch.sqrt(1 - self.bar_alpha[t_start]) * pred_eps
                 ) / torch.sqrt(self.bar_alpha[t_start])
 
+            # Forward model posterior mean given x_0, x_t
             x = (
                 torch.sqrt(self.bar_alpha[t_end]) * (1 - self.bar_alpha[t_start] / self.bar_alpha[t_end]) * pred_x_0 +
                 (1 - self.bar_alpha[t_end]) * torch.sqrt(self.bar_alpha[t_start] / self.bar_alpha[t_end]) * x
             ) / (1 - self.bar_alpha[t_start])
+
+            # Forward model posterior noise
             if self.sigma_type == "upper_bound":
                 x += torch.sqrt(1 - self.bar_alpha[t_start] / self.bar_alpha[t_end]) * noise
             if self.sigma_type == "lower_bound":
