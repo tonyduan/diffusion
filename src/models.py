@@ -18,7 +18,7 @@ class DiffusionModelConfig:
 
     def __post_init__(self):
         assert self.target_type in ("pred_x_0", "pred_eps")
-        assert self.sigma_type in ("lower_bound", "upper_bound")
+        assert self.sigma_type in ("lower_bound", "upper_bound", "zero")
         assert self.noise_schedule_type in ("linear", "cosine")
         assert self.loss_type in ("l1", "l2")
 
@@ -134,6 +134,8 @@ class DiffusionModel(nn.Module):
                     (1 - self.bar_alpha[t_start] / self.bar_alpha[t_end]) *
                     (1 - self.bar_alpha[t_end]) / (1 - self.bar_alpha[t_start])
                 ) * noise
+            if self.sigma_type == "zero":
+                pass
 
             samples[-1 - idx - 1] = x
         return samples
