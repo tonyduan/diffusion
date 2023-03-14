@@ -18,7 +18,9 @@ This codebase provides a *minimalist* re-production of the MNIST example below.
 
 It clocks in at well under 500 LOC.
 
-![MNIST](examples/ex_mnist.png)
+<p align="center">
+<img src="examples/ex_mnist_crop.png"/>
+</p>
 
 (Left: MNIST groundtruth. Right: MNIST sampling starting from random noise).
 
