@@ -17,8 +17,8 @@ class DiffusionModelConfig:
     loss_type: str = "l2"
 
     def __post_init__(self):
-        assert self.target_type in ("pred_x_0", "pred_eps")
-        assert self.sigma_type in ("lower_bound", "upper_bound", "zero")
+        assert self.target_type in ("pred_x_0", "pred_eps", "pred_v")
+        assert self.sigma_type in ("lower_bound", "upper_bound")
         assert self.noise_schedule_type in ("linear", "cosine")
         assert self.loss_type in ("l1", "l2")
 
@@ -73,12 +73,21 @@ class DiffusionModel(nn.Module):
         pred_target = self.nn_module(x_t, t_sample)
         if self.target_type == "pred_x_0":
             gt_target = x
-        if self.target_type == "pred_eps":
+        elif self.target_type == "pred_eps":
             gt_target = eps
+        elif self.target_type == "pred_v":
+            gt_target = (
+                torch.sqrt(self.bar_alpha[t_sample]) * eps -
+                torch.sqrt(1 - self.bar_alpha[t_sample]) * x
+            )
+        else:
+            raise AssertionError(f"Invalid {self.target_type=}.")
         if self.loss_type == "l2":
             loss = 0.5 * (gt_target - pred_target) ** 2
-        if self.loss_type == "l1":
+        elif self.loss_type == "l1":
             loss = torch.abs(gt_target - pred_target)
+        else:
+            raise AssertionError(f"Invalid {self.loss_type=}.")
         return loss
 
     @torch.no_grad()
@@ -114,11 +123,19 @@ class DiffusionModel(nn.Module):
 
             if self.target_type == "pred_x_0":
                 pred_x_0 = self.nn_module(x, t_start)
-            if self.target_type == "pred_eps":
+            elif self.target_type == "pred_eps":
                 pred_eps = self.nn_module(x, t_start)
                 pred_x_0 = (
                     x - torch.sqrt(1 - self.bar_alpha[t_start]) * pred_eps
                 ) / torch.sqrt(self.bar_alpha[t_start])
+            elif self.target_type == "pred_v":
+                pred_v = self.nn_module(x, t_start)
+                pred_x_0 = (
+                    torch.sqrt(self.bar_alpha[t_start]) * x -
+                    torch.sqrt(1 - self.bar_alpha[t_start]) * pred_v
+                )
+            else:
+                raise AssertionError(f"Invalid {self.target_type=}.")
 
             # Forward model posterior mean given x_0, x_t
             x = (
@@ -127,15 +144,17 @@ class DiffusionModel(nn.Module):
             ) / (1 - self.bar_alpha[t_start])
 
             # Forward model posterior noise
-            if self.sigma_type == "upper_bound":
+            if scalar_t_end == 0:
+                pass
+            elif self.sigma_type == "upper_bound":
                 x += torch.sqrt(1 - self.bar_alpha[t_start] / self.bar_alpha[t_end]) * noise
-            if self.sigma_type == "lower_bound":
+            elif self.sigma_type == "lower_bound":
                 x += torch.sqrt(
                     (1 - self.bar_alpha[t_start] / self.bar_alpha[t_end]) *
                     (1 - self.bar_alpha[t_end]) / (1 - self.bar_alpha[t_start])
                 ) * noise
-            if self.sigma_type == "zero":
-                pass
+            else:
+                raise AssertionError(f"Invalid {self.sigma_type=}.")
 
             samples[-1 - idx - 1] = x
         return samples
