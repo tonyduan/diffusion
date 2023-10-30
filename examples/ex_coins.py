@@ -13,7 +13,8 @@ from src.models import DiffusionModel, DiffusionModelConfig
 def gen_data(n=512, d=48):
     x = np.vstack([
         np.random.permutation(np.r_[np.ones(3 * d // 4), np.zeros(d // 4)])
-    ] for _ in range(n))
+        for _ in range(n)
+    ])
     assert np.all(np.sum(x, axis=1) == 3 * d // 4)
     x = x * 2 - 1
     return x.astype(np.float32)
@@ -31,12 +32,12 @@ if __name__ == "__main__":
 
     nn_module = FFN(in_dim=48, embed_dim=96)
     model = DiffusionModel(
-        num_timesteps=100,
         nn_module=nn_module,
         input_shape=(48,),
         config=DiffusionModelConfig(
+            num_timesteps=100,
             target_type="pred_x_0",
-            sigma_type="upper_bound",
+            gamma_type="ddim",
             noise_schedule_type="cosine",
         ),
     )

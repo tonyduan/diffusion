@@ -33,10 +33,14 @@ if __name__ == "__main__":
 
     nn_module = FFN(in_dim=2, embed_dim=16)
     model = DiffusionModel(
-        num_timesteps=10,
         nn_module=nn_module,
         input_shape=(2,),
-        config=DiffusionModelConfig(),
+        config=DiffusionModelConfig(
+            num_timesteps=10,
+            noise_schedule_type="linear",
+            target_type="pred_eps",
+            gamma_type="ddpm",
+        ),
     )
 
     optimizer = optim.Adam(model.parameters(), lr=0.001)
@@ -64,7 +68,7 @@ if __name__ == "__main__":
         plot_data(samples[t])
         plt.title(f"Sample t={t}")
 
-    samples = model.sample(bsz=512, device="cpu", sampling_timesteps=3)
+    samples = model.sample(bsz=512, device="cpu", num_sampling_timesteps=3)
 
     for t in range(4):
         plt.subplot(4, 4, t + 12 + 1)
@@ -90,7 +94,7 @@ if __name__ == "__main__":
 
         pred_eps = pred_eps.numpy().reshape(30, 20, 2)
         one_axes = axes[(scalar_t + 1) // 4, (scalar_t + 1) % 4]
-        one_axes.quiver(x_grid, y_grid, -pred_eps[..., 0], -pred_eps[..., 1])
+        one_axes.quiver(x_grid.numpy(), y_grid.numpy(), -pred_eps[..., 0], -pred_eps[..., 1])
         one_axes.axis("off")
         one_axes.set_title(f"Score {scalar_t}")
 

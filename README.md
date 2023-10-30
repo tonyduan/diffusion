@@ -10,8 +10,6 @@ So instead of putting notes here, they've been moved to my website.
 
 [[**This blog post**]](https://www.tonyduan.com/diffusion.html) explains the intuition and derivations behind diffusion.
 
-The code here likely won't make much sense without reading it.
-
 ---
 
 This codebase provides a *minimalist* re-production of the MNIST example below.
@@ -25,8 +23,6 @@ It clocks in at well under 500 LOC.
 (Left: MNIST groundtruth. Right: MNIST sampling starting from random noise).
 
 Another simple example implemented in this repository is diffusion for a mixture of two Gaussians below.
-
-We can validate that accelerated sampling is much faster but maintains reasonable results.
 
 ![2D](examples/ex_2d.png)
 

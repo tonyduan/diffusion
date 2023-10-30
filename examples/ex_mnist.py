@@ -17,7 +17,7 @@ if __name__ == "__main__":
     argparser = ArgumentParser()
     argparser.add_argument("--iterations", default=2000, type=int)
     argparser.add_argument("--batch-size", default=512, type=int)
-    argparser.add_argument("--device", default="cuda", type=str, choices=("cuda", "cpu"))
+    argparser.add_argument("--device", default="cuda", type=str, choices=("cuda", "cpu", "mps"))
     args = argparser.parse_args()
 
     logging.basicConfig(level=logging.INFO)
@@ -39,12 +39,12 @@ if __name__ == "__main__":
 
     nn_module = UNet(1, 128, (1, 2, 4, 8))
     model = DiffusionModel(
-        num_timesteps=500,
         nn_module=nn_module,
         input_shape=(1, 32, 32,),
         config=DiffusionModelConfig(
+            num_timesteps=500,
             target_type="pred_x_0",
-            sigma_type="upper_bound",
+            gamma_type="ddim",
             noise_schedule_type="cosine",
         ),
     )
@@ -67,7 +67,7 @@ if __name__ == "__main__":
 
     model.eval()
 
-    samples = model.sample(bsz=64, sampling_timesteps=None, device=args.device).cpu().numpy()
+    samples = model.sample(bsz=64, num_sampling_timesteps=None, device=args.device).cpu().numpy()
     samples = rearrange(samples, "t b () h w -> t b (h w)")
     samples = samples * input_sd + input_mean
     x_vis = x[:64] * input_sd + input_mean
@@ -93,7 +93,4 @@ if __name__ == "__main__":
         row, col = i // ncols, i % ncols
         raster[32 * row : 32 * (row + 1), 32 * ncols * 5 + 32 * col : 32 * ncols * 5 + 32 * (col + 1)] = samples[0][i].reshape(32, 32)
 
-    plt.imshow(raster, vmin=0, vmax=255)
-    plt.axis("off")
-    plt.tight_layout()
-    plt.savefig("./examples/ex_mnist.png")
+    plt.imsave("./examples/ex_mnist.png", raster, vmin=0, vmax=255)
