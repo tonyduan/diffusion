@@ -145,7 +145,10 @@ class UNet(nn.Module):
         #   in_dim=1, embed_dim=32, dim_scales=(1, 2, 4, 8) => all_dims=(32, 32, 64, 128, 256)
         all_dims = (embed_dim, *[embed_dim * s for s in dim_scales])
 
-        for idx, (in_c, out_c) in enumerate(zip(all_dims[:-1], all_dims[1:])):
+        for idx, (in_c, out_c) in enumerate(zip(
+            all_dims[:-1],
+            all_dims[1:],
+        )):
             is_last = idx == len(all_dims) - 2
             self.down_blocks.extend(nn.ModuleList([
                 BasicBlock(in_c, in_c, embed_dim),
@@ -153,12 +156,16 @@ class UNet(nn.Module):
                 nn.Conv2d(in_c, out_c, 3, 2, 1) if not is_last else nn.Conv2d(in_c, out_c, 1),
             ]))
 
-        for idx, (in_c, out_c, skip_c) in enumerate(zip(all_dims[::-1][:-1], all_dims[::-1][1:], all_dims[:-1][::-1])):
+        for idx, (in_c, out_c, skip_c) in enumerate(zip(
+            all_dims[::-1][:-1],
+            all_dims[::-1][1:],
+            all_dims[:-1][::-1],
+        )):
             is_last = idx == len(all_dims) - 2
             self.up_blocks.extend(nn.ModuleList([
                 BasicBlock(in_c + skip_c, in_c, embed_dim),
                 BasicBlock(in_c + skip_c, in_c, embed_dim),
-                nn.ConvTranspose2d(in_c, out_c, (2, 2), 2) if not is_last else nn.Conv2d(in_c, out_c, 1),
+                nn.ConvTranspose2d(in_c, out_c, 2, 2) if not is_last else nn.Conv2d(in_c, out_c, 1),
             ]))
 
         self.mid_blocks = nn.ModuleList([
