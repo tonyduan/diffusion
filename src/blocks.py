@@ -25,6 +25,8 @@ class PositionalEmbedding(nn.Module):
         self.register_buffer("embedding", self.make_embedding(dim, max_length))
 
     def forward(self, x):
+        # Parameters
+        #   x: (bsz,) discrete
         return self.embedding[x]
 
     @staticmethod
@@ -34,6 +36,22 @@ class PositionalEmbedding(nn.Module):
         div_term = torch.exp(torch.arange(0, dim, 2) * (-math.log(max_length / 2 / math.pi) / dim))
         embedding[:, 0::2] = torch.sin(position * div_term)
         embedding[:, 1::2] = torch.cos(position * div_term)
+        return embedding
+
+
+class FourierEmbedding(nn.Module):
+    def __init__(self, dim, max_period=10000):
+        super().__init__()
+        assert dim % 2 == 0
+        self.dim = dim
+        self.max_period = max_period
+
+    def forward(self, x):
+        # Parameters
+        #   x: (bsz,) continuous
+        freqs = torch.exp(torch.arange(0, self.dim, 2) * -math.log(self.max_period) / self.dim).to(x)
+        outer = torch.outer(x, freqs)
+        embedding = torch.cat([torch.cos(outer), torch.sin(outer)], dim=-1)
         return embedding
 
 

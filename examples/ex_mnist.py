@@ -9,7 +9,7 @@ import torch
 import torch.optim as optim
 
 from src.blocks import UNet
-from src.models import DiffusionModel, DiffusionModelConfig
+from src.diffusion import DiffusionModel, DiffusionModelConfig
 
 
 if __name__ == "__main__":
@@ -73,24 +73,17 @@ if __name__ == "__main__":
     x_vis = x[:64] * input_sd + input_mean
 
     nrows, ncols = 10, 2
-    raster = np.zeros((nrows * 32, ncols * 32 * 6))
+    percents = (100, 75, 50, 25, 0)
+    raster = np.zeros((nrows * 32, ncols * 32 * (len(percents) + 1)), dtype=np.float32)
+
     for i in range(nrows * ncols):
         row, col = i // ncols, i % ncols
         raster[32 * row : 32 * (row + 1), 32 * col : 32 * (col + 1)] = x_vis[i].reshape(32, 32)
-    for i in range(nrows * ncols):
-        row, col = i // ncols, i % ncols
-        raster[32 * row : 32 * (row + 1), 32 * ncols + 32 * col : 32 * ncols + 32 * (col + 1)] = samples[500][i].reshape(32, 32)
-    for i in range(nrows * ncols):
-        row, col = i // ncols, i % ncols
-        raster[32 * row : 32 * (row + 1), 32 * ncols * 2 + 32 * col : 32 * ncols * 2 + 32 * (col + 1)] = samples[375][i].reshape(32, 32)
-    for i in range(nrows * ncols):
-        row, col = i // ncols, i % ncols
-        raster[32 * row : 32 * (row + 1), 32 * ncols * 3 + 32 * col : 32 * ncols * 3 + 32 * (col + 1)] = samples[250][i].reshape(32, 32)
-    for i in range(nrows * ncols):
-        row, col = i // ncols, i % ncols
-        raster[32 * row : 32 * (row + 1), 32 * ncols * 4 + 32 * col : 32 * ncols * 4 + 32 * (col + 1)] = samples[125][i].reshape(32, 32)
-    for i in range(nrows * ncols):
-        row, col = i // ncols, i % ncols
-        raster[32 * row : 32 * (row + 1), 32 * ncols * 5 + 32 * col : 32 * ncols * 5 + 32 * (col + 1)] = samples[0][i].reshape(32, 32)
+    for percent_idx, percent in enumerate(percents):
+        itr_num = int(round(0.01 * percent * (len(samples) - 1)))
+        for i in range(nrows * ncols):
+            row, col = i // ncols, i % ncols
+            offset = 32 * ncols * (percent_idx + 1)
+            raster[32 * row : 32 * (row + 1), offset + 32 * col : offset + 32 * (col + 1)] = samples[itr_num][i].reshape(32, 32)
 
     plt.imsave("./examples/ex_mnist.png", raster, vmin=0, vmax=255)

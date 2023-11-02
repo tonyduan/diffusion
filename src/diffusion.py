@@ -66,13 +66,13 @@ class DiffusionModel(nn.Module):
         self.register_buffer("alpha_t", alpha_t)
         self.register_buffer("sigma_t", sigma_t)
 
-    def loss(self, x):
+    def loss(self, x: torch.Tensor):
         """
         Returns
         -------
         loss: (bsz, *input_shape)
         """
-        bsz = len(x)
+        bsz, *_ = x.shape
         t_sample = torch.randint(1, self.num_timesteps + 1, size=(bsz,), device=x.device)
         eps = torch.randn_like(x)
         x_t = self.alpha_t[t_sample] * x + self.sigma_t[t_sample] * eps
@@ -97,7 +97,7 @@ class DiffusionModel(nn.Module):
         return loss
 
     @torch.no_grad()
-    def sample(self, bsz, device, num_sampling_timesteps=None):
+    def sample(self, bsz: int, device: str, num_sampling_timesteps: int | None = None):
         """
         Parameters
         ----------
