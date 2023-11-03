@@ -61,8 +61,8 @@ class ScoreMatchingModel(nn.Module):
     def get_cosine_sigma_ppf(p: torch.Tensor, sigma_data: float, sigma_min: float, sigma_max: float):
         logsnr_min = 2 * (math.log(sigma_data) - math.log(sigma_min))
         logsnr_max = 2 * (math.log(sigma_data) - math.log(sigma_max))
-        t_min = math.atan(math.exp(-0.5 * logsnr_max))
-        t_max = math.atan(math.exp(-0.5 * logsnr_min))
+        t_min = math.atan(math.exp(-0.5 * logsnr_min))
+        t_max = math.atan(math.exp(-0.5 * logsnr_max))
         sigma = torch.tan(t_min + p * (t_max - t_min)) * sigma_data
         return sigma
 
@@ -154,8 +154,8 @@ class ScoreMatchingModel(nn.Module):
         else:
             raise AssertionError(f"Invalid {self.test_sigma_schedule_type}.")
 
-        sigma_start = torch.empty((bsz,), dtype=torch.int64, device=device)
-        sigma_end = torch.empty((bsz,), dtype=torch.int64, device=device)
+        sigma_start = torch.empty((bsz,), dtype=torch.float32, device=device)
+        sigma_end = torch.empty((bsz,), dtype=torch.float32, device=device)
 
         x = torch.randn((bsz, *self.input_shape), device=device) * self.sigma_max
         samples = torch.empty((num_sampling_timesteps + 1, bsz, *self.input_shape), device=device)
