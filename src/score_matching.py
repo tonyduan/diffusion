@@ -24,7 +24,7 @@ class ScoreMatchingModelConfig:
         assert self.sigma_min <= self.sigma_max
         assert self.loss_type in ("l1", "l2")
         assert self.sigma_schedule_type in ("cosine", "lognormal")
-        assert self.sigma_schedule_type == "lognormal" ^ (self.p_mean is None and self.p_std is None)
+        assert (self.sigma_schedule_type == "lognormal") ^ (self.p_mean is None and self.p_std is None)
 
 
 class ScoreMatchingModel(nn.Module):
@@ -50,7 +50,7 @@ class ScoreMatchingModel(nn.Module):
         self.sigma_max = config.sigma_max
         self.rho = config.rho
         self.loss_type = config.loss_type
-        self.sigma
+        self.sigma_schedule_type = config.sigma_schedule_type
         self.sigma_min_root = (self.sigma_min) ** (1 / self.rho)
         self.sigma_max_root = (self.sigma_max) ** (1 / self.rho)
 
@@ -72,7 +72,7 @@ class ScoreMatchingModel(nn.Module):
         sigmas_percentile = (
             ((sigma ** (1 / self.rho)) - self.sigma_min_root) / (self.sigma_max_root - self.sigma_min_root)
         )
-        sigmas_discrete = torch.floor(num_discrete_chunks * sigmas_percentile).clamp(max=num_discrete_chunks - 1)
+        sigmas_discrete = torch.floor(num_discrete_chunks * sigmas_percentile).clamp(max=num_discrete_chunks - 1).long()
         return c_out * self.nn_module(c_in * x, sigmas_discrete) + c_skip * x
 
     def loss(self, x, train_step_number: int):
@@ -106,11 +106,11 @@ class ScoreMatchingModel(nn.Module):
             raise AssertionError(f"Invalid {self.loss_type=}.")
 
         loss_weights = (sigma ** 2 + self.sigma_data ** 2) / (sigma * self.sigma_data) ** 2
-        loss *= loss_weights
+        loss *= unsqueeze_as(loss_weights, loss)
         return loss
 
     @torch.no_grad()
-    def sample(self, bsz, device, num_sampling_timesteps: int, use_heun_update: bool = False):
+    def sample(self, bsz, device, num_sampling_timesteps: int, use_heun_step: bool = False):
         """
         Parameters
         ----------
@@ -135,7 +135,7 @@ class ScoreMatchingModel(nn.Module):
         sigma_start = torch.empty((bsz,), dtype=torch.int64, device=device)
         sigma_end = torch.empty((bsz,), dtype=torch.int64, device=device)
 
-        x = torch.randn((bsz, *self.input_shape), device=device) * self.sigma_max_root
+        x = torch.randn((bsz, *self.input_shape), device=device) * self.sigma_max
         samples = torch.empty((num_sampling_timesteps + 1, bsz, *self.input_shape), device=device)
         samples[-1] = x * self.sigma_data / (self.sigma_max ** 2 + self.sigma_data ** 2) ** 0.5
 
@@ -148,7 +148,7 @@ class ScoreMatchingModel(nn.Module):
             dx_dsigma = (x - pred_x_0) / scalar_sigma_start
             dsigma = scalar_sigma_end - scalar_sigma_start
 
-            if use_heun_update and scalar_sigma_end > 0:
+            if use_heun_step and scalar_sigma_end > 0:
                 x_ = x + dx_dsigma * dsigma
                 pred_x_0_ = self.nn_module_wrapper(x_, sigma_end)
                 dx_dsigma_ = (x_ - pred_x_0_) / scalar_sigma_end

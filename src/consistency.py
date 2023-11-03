@@ -123,7 +123,7 @@ class ConsistencyModel(nn.Module):
             raise AssertionError(f"Invalid {self.loss_type=}.")
 
         loss_weights = 1 / (sigma_t_plus_1 - sigma_t)
-        loss *= loss_weights
+        loss *= unsqueeze_as(loss_weights, loss)
         return loss
 
     @torch.no_grad()
