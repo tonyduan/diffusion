@@ -77,7 +77,7 @@ class ConsistencyModel(nn.Module):
         sigmas_percentile = (
             ((sigma ** (1 / self.rho)) - self.sigma_min_root) / (self.sigma_max_root - self.sigma_min_root)
         )
-        sigmas_discrete = torch.floor(num_discrete_chunks * sigmas_percentile).clamp(max=num_discrete_chunks - 1)
+        sigmas_discrete = torch.floor(num_discrete_chunks * sigmas_percentile).clamp(max=num_discrete_chunks - 1).long()
         return c_out * self.nn_module(c_in * x, sigmas_discrete) + c_skip * x
 
     def loss(self, x, train_step_number: int):
