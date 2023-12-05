@@ -17,6 +17,7 @@ def get_cosine_schedule(num_timesteps):
     alpha_t = np.cumprod(1 - beta_t, axis=0) ** 0.5
     return alpha_t
 
+
 if __name__ == "__main__":
 
     T = 500
