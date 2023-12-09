@@ -21,8 +21,8 @@ if __name__ == "__main__":
     sigma = (1 - alpha ** 2) ** 0.5
     cosine_logsnr = 2 * (np.log(alpha) - np.log(sigma))
 
-    shifted_down_logsnr = cosine_logsnr + np.log(0.25)
-    shifted_up_logsnr = cosine_logsnr + np.log(4)
+    shifted_down_logsnr = cosine_logsnr + 2 * np.log(0.5)
+    shifted_up_logsnr = cosine_logsnr + 2 * np.log(2)
 
     plt.figure(figsize=(7, 5.2), dpi=200)
 
@@ -71,7 +71,7 @@ if __name__ == "__main__":
     plt.yticks([])
     plt.xlabel("$x_t$")
     plt.ylabel("$\\epsilon_t$")
-    plt.title("Shifted down $+\\log\\left(\\frac{1}{4}\\right)$")
+    plt.title("Shifted down $+2\\log\\left(\\frac{1}{2}\\right)$")
 
     plt.subplot(2, 3, 6)
     draw_lines(shifted_up_logsnr, color="maroon")
@@ -79,7 +79,7 @@ if __name__ == "__main__":
     plt.yticks([])
     plt.xlabel("$x_t$")
     plt.ylabel("$\\epsilon_t$")
-    plt.title("Shifted up $+\\log(4)$")
+    plt.title("Shifted up $+2\\log(2)$")
 
     plt.tight_layout()
     plt.savefig("./figures/fig_shifts.png")

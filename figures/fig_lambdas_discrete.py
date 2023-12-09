@@ -39,5 +39,6 @@ if __name__ == "__main__":
     plt.xlabel("$\\log\\lambda$")
     plt.legend()
     plt.tight_layout()
-    plt.savefig("./figures/fig_lambdas.png")
+    plt.tick_params(bottom=False, top=False)
+    plt.savefig("./figures/fig_lambdas_discrete.png")
 
