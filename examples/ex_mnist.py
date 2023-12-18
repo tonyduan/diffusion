@@ -67,7 +67,7 @@ if __name__ == "__main__":
     torch.save(model.state_dict(), "./ckpts/mnist_trained.pt")
     model.eval()
 
-    samples = model.sample(bsz=64, num_sampling_timesteps=None, device=args.device).cpu().numpy()
+    samples = model.sample(bsz=64, num_sampling_timesteps=20, device=args.device).cpu().numpy()
     samples = rearrange(samples, "t b () h w -> t b (h w)")
     samples = samples * input_sd + input_mean
     x_vis = x[:64] * input_sd + input_mean

@@ -58,6 +58,7 @@ class ScoreMatchingModel(nn.Module):
         self.loss_weighting_type = config.loss_weighting_type
         self.train_sigma_schedule = config.train_sigma_schedule
         self.test_sigma_schedule = config.test_sigma_schedule
+        self.sampler = config.sampler
 
     def nn_module_wrapper(self, x, sigma, num_discrete_chunks=10000):
         """
@@ -118,7 +119,7 @@ class ScoreMatchingModel(nn.Module):
         return loss
 
     @torch.no_grad()
-    def sample(self, bsz, device, num_sampling_timesteps: int, dtype: torch.dtype = torch.float32):
+    def sample(self, bsz, device, num_sampling_timesteps: int):
         """
         Parameters
         ----------
@@ -140,10 +141,10 @@ class ScoreMatchingModel(nn.Module):
         linspace = torch.linspace(1.0, 0.0, num_sampling_timesteps + 1, device=device)
         sigmas = self.test_sigma_schedule.get_sigma_ppf(linspace)
 
-        sigma_start = torch.empty((bsz,), dtype=dtype, device=device)
-        sigma_end = torch.empty((bsz,), dtype=dtype, device=device)
+        sigma_start = torch.empty((bsz,), device=device)
+        sigma_end = torch.empty((bsz,), device=device)
 
-        x = torch.randn((bsz, *self.input_shape), dtype=dtype, device=device) * self.sigma_max
+        x = torch.randn((bsz, *self.input_shape), device=device) * self.sigma_max
         samples = torch.empty((num_sampling_timesteps + 1, bsz, *self.input_shape), device=device)
         samples[-1] = x * self.sigma_data / (self.sigma_max ** 2 + self.sigma_data ** 2) ** 0.5
 
