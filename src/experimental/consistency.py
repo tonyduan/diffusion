@@ -1,6 +1,5 @@
 from dataclasses import dataclass
 import math
-from typing import Tuple
 
 import torch
 import torch.nn as nn
@@ -32,7 +31,7 @@ class ConsistencyModel(nn.Module):
 
     def __init__(
         self,
-        input_shape: Tuple,
+        input_shape: tuple[int, ...],
         nn_module: nn.Module,
         config: ConsistencyModelConfig,
     ):

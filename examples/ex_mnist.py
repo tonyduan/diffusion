@@ -2,14 +2,14 @@ from argparse import ArgumentParser
 import logging
 
 from einops import rearrange
-import matplotlib.pyplot as plt
+from matplotlib import pyplot as plt
 import numpy as np
 from sklearn.datasets import fetch_openml
 import torch
 import torch.optim as optim
 
 from src.blocks import UNet
-from src.diffusion import DiffusionModel, DiffusionModelConfig
+from src.simple.diffusion import DiffusionModel, DiffusionModelConfig
 
 
 if __name__ == "__main__":

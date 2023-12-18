@@ -1,3 +1,6 @@
+"""
+This file provides a simple, self-contained implementation of DDIM (with DDPM as a special case).
+"""
 from dataclasses import dataclass
 import math
 
@@ -28,7 +31,7 @@ class DiffusionModel(nn.Module):
 
     def __init__(
         self,
-        input_shape: tuple,
+        input_shape: tuple[int, ...],
         nn_module: nn.Module,
         config: DiffusionModelConfig,
     ):

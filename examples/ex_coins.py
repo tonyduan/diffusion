@@ -7,7 +7,7 @@ import torch
 import torch.optim as optim
 
 from src.blocks import FFN
-from src.diffusion import DiffusionModel, DiffusionModelConfig
+from src.simple.diffusion import DiffusionModel, DiffusionModelConfig
 
 
 def gen_data(n=512, d=48):
