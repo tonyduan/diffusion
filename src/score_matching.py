@@ -5,7 +5,7 @@ import torch
 import torch.nn as nn
 
 from src.blocks import unsqueeze_as
-from src.samplers import Sampler, EulerSampler
+from src.samplers import InstantaneousPrediction, Sampler, EulerSampler
 from src.schedules import CosineSchedule, NoiseSchedule
 
 
@@ -156,7 +156,8 @@ class ScoreMatchingModel(nn.Module):
             sigma_end.fill_(scalar_sigma_end)
 
             pred_x_0 = self.nn_module_wrapper(x, sigma_start)
-            x = self.sampler.step(x, pred_x_0, scalar_sigma_start, scalar_sigma_end)
+            pred_at_x_t = InstantaneousPrediction(scalar_sigma_start, x, pred_x_0)
+            x = self.sampler.step(scalar_sigma_start, scalar_sigma_end, pred_at_x_t)
 
             normalization_factor = (
                 self.sigma_data / (scalar_sigma_end ** 2 + self.sigma_data ** 2) ** 0.5

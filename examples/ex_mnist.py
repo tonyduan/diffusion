@@ -18,6 +18,7 @@ if __name__ == "__main__":
     argparser.add_argument("--iterations", default=2000, type=int)
     argparser.add_argument("--batch-size", default=512, type=int)
     argparser.add_argument("--device", default="cuda", type=str, choices=("cuda", "cpu", "mps"))
+    argparser.add_argument("--load-trained", default=0, type=int, choices=(0, 1))
     args = argparser.parse_args()
 
     logging.basicConfig(level=logging.INFO)
@@ -52,19 +53,22 @@ if __name__ == "__main__":
     optimizer = optim.Adam(model.parameters(), lr=0.001)
     scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, args.iterations)
 
-    for i in range(args.iterations):
-        x_batch = x[np.random.choice(len(x), args.batch_size)]
-        x_batch = torch.from_numpy(x_batch).to(args.device)
-        x_batch = rearrange(x_batch, "b (h w) -> b () h w", h=32, w=32)
-        optimizer.zero_grad()
-        loss = model.loss(x_batch).mean()
-        loss.backward()
-        optimizer.step()
-        scheduler.step()
-        if i % 100 == 0:
-            logger.info(f"Iter: {i}\t" + f"Loss: {loss.data:.2f}\t")
+    if args.load_trained:
+        model.load_state_dict(torch.load("./ckpts/mnist_trained.pt"))
+    else:
+        for i in range(args.iterations):
+            x_batch = x[np.random.choice(len(x), args.batch_size)]
+            x_batch = torch.from_numpy(x_batch).to(args.device)
+            x_batch = rearrange(x_batch, "b (h w) -> b () h w", h=32, w=32)
+            optimizer.zero_grad()
+            loss = model.loss(x_batch).mean()
+            loss.backward()
+            optimizer.step()
+            scheduler.step()
+            if i % 100 == 0:
+                logger.info(f"Iter: {i}\t" + f"Loss: {loss.data:.2f}\t")
+        torch.save(model.state_dict(), "./ckpts/mnist_trained.pt")
 
-    torch.save(model.state_dict(), "./ckpts/mnist_trained.pt")
     model.eval()
 
     samples = model.sample(bsz=64, num_sampling_timesteps=20, device=args.device).cpu().numpy()
