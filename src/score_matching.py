@@ -1,39 +1,46 @@
 from dataclasses import dataclass
 import math
-from typing import Tuple
 
 import torch
 import torch.nn as nn
 
 from src.blocks import unsqueeze_as
+from src.samplers import Sampler, EulerSampler
+from src.schedules import CosineSchedule, NoiseSchedule
 
 
 @dataclass(frozen=True)
 class ScoreMatchingModelConfig:
 
-    loss_type: str = "l2"
-    train_sigma_schedule_type: str = "cosine"
-    test_sigma_schedule_type: str = "cosine"
+    # Network configuration and loss weighting
     sigma_min: float = 0.002
     sigma_max: float = 80.0
     sigma_data: float = 0.5
-    rho: float = 7.0
-    p_mean: float | None = None
-    p_std: float | None = None
+
+    # Training time configuration
+    loss_type: str = "l2"
+    loss_weighting_type: str = "karras"
+    train_sigma_schedule: NoiseSchedule = CosineSchedule()
+
+    # Inference time configuration
+    sampler: Sampler = EulerSampler()
+    test_sigma_schedule: NoiseSchedule = CosineSchedule()
 
     def __post_init__(self):
-        assert self.sigma_min <= self.sigma_max
+        assert 0 <= self.sigma_min <= self.sigma_max
+        assert self.sigma_min == self.train_sigma_schedule.sigma_min
+        assert self.sigma_min == self.test_sigma_schedule.sigma_min
+        assert self.sigma_max == self.train_sigma_schedule.sigma_max
+        assert self.sigma_max == self.test_sigma_schedule.sigma_max
         assert self.loss_type in ("l1", "l2")
-        assert self.train_sigma_schedule_type in ("cosine", "lognormal")
-        assert self.test_sigma_schedule_type in ("cosine", "karras")
-        assert (self.train_sigma_schedule_type == "lognormal") ^ (self.p_mean is None and self.p_std is None)
+        assert self.loss_weighting_type in ("ones", "snr", "karras", "min_snr")
 
 
 class ScoreMatchingModel(nn.Module):
 
     def __init__(
         self,
-        input_shape: Tuple,
+        input_shape: tuple[int, ...],
         nn_module: nn.Module,
         config: ScoreMatchingModelConfig,
     ):
@@ -44,37 +51,19 @@ class ScoreMatchingModel(nn.Module):
         # Input shape must be either (c,) or (c, h, w)
         assert len(input_shape) in (1, 3)
 
-        # Unpack config and pre-compute a few relevant constants
-        self.p_mean = config.p_mean
-        self.p_std = config.p_std
         self.sigma_data = config.sigma_data
         self.sigma_min = config.sigma_min
         self.sigma_max = config.sigma_max
-        self.rho = config.rho
         self.loss_type = config.loss_type
-        self.train_sigma_schedule_type = config.train_sigma_schedule_type
-        self.test_sigma_schedule_type = config.test_sigma_schedule_type
-        self.sigma_min_root = (self.sigma_min) ** (1 / self.rho)
-        self.sigma_max_root = (self.sigma_max) ** (1 / self.rho)
-
-    @staticmethod
-    def get_cosine_sigma_ppf(p: torch.Tensor, sigma_data: float, sigma_min: float, sigma_max: float):
-        logsnr_min = 2 * (math.log(sigma_data) - math.log(sigma_min))
-        logsnr_max = 2 * (math.log(sigma_data) - math.log(sigma_max))
-        t_min = math.atan(math.exp(-0.5 * logsnr_min))
-        t_max = math.atan(math.exp(-0.5 * logsnr_max))
-        sigma = torch.tan(t_min + p * (t_max - t_min)) * sigma_data
-        return sigma
-
-    @staticmethod
-    def get_karras_sigma_ppf(p: torch.Tensor, sigma_min: float, sigma_max: float, rho: float):
-        return (sigma_min ** (1 / rho) + p * (sigma_max ** (1 / rho) - sigma_min ** (1 / rho))) ** rho
+        self.loss_weighting_type = config.loss_weighting_type
+        self.train_sigma_schedule = config.train_sigma_schedule
+        self.test_sigma_schedule = config.test_sigma_schedule
 
     def nn_module_wrapper(self, x, sigma, num_discrete_chunks=10000):
         """
         This function does two things:
-        1. Implements Karras et al. 2022 pre-conditioning
-        2. Converts sigma which have range (sigma_min, sigma_max) into a discrete input
+        1. Implements Karras et al. 2022 pre-conditioning.
+        2. Converts sigma in range [sigma_min, sigma_max] into a discrete input.
 
         Parameters
         ----------
@@ -85,10 +74,12 @@ class ScoreMatchingModel(nn.Module):
         c_in = 1 / (sigma ** 2 + self.sigma_data ** 2) ** 0.5
         c_out = sigma * self.sigma_data / (self.sigma_data ** 2 + sigma ** 2) ** 0.5
         c_skip, c_in, c_out = unsqueeze_as(c_skip, x), unsqueeze_as(c_in, x), unsqueeze_as(c_out, x)
-        sigmas_percentile = (
-            (torch.log(sigma) - math.log(self.sigma_min)) / (math.log(self.sigma_max) - math.log(self.sigma_min))
+        log_sigmas_percentile = (
+            (torch.log(sigma) - math.log(self.sigma_min)) /
+            (math.log(self.sigma_max) - math.log(self.sigma_min))
         )
-        sigmas_discrete = torch.floor(num_discrete_chunks * sigmas_percentile).clamp(max=num_discrete_chunks - 1).long()
+        sigmas_discrete = torch.floor(num_discrete_chunks * log_sigmas_percentile)
+        sigmas_discrete = sigmas_discrete.clamp_(min=0, max=num_discrete_chunks - 1).long()
         return c_out * self.nn_module(c_in * x, sigmas_discrete) + c_skip * x
 
     def loss(self, x):
@@ -99,17 +90,8 @@ class ScoreMatchingModel(nn.Module):
         """
         bsz, *_ = x.shape
 
-        if self.train_sigma_schedule_type == "cosine":
-            rng = torch.rand((bsz,), device=x.device)
-            sigma = self.get_cosine_sigma_ppf(rng, self.sigma_data, self.sigma_min, self.sigma_max)
-        elif self.train_sigma_schedule_type == "karras":
-            rng = torch.rand((bsz,), device=x.device)
-            sigma = self.get_karras_sigma_ppf(rng, self.sigma_min, self.sigma_max, self.rho)
-        elif self.train_sigma_schedule_type == "lognormal":
-            rng = torch.randn((bsz,), device=x.device)
-            sigma = torch.exp(self.p_std * rng + self.p_mean)
-        else:
-            raise AssertionError(f"Invalid {self.train_sigma_schedule_type=}.")
+        rng = torch.rand((bsz,), device=x.device)
+        sigma = self.train_sigma_schedule.get_sigma_ppf(rng)
 
         x_t = x + unsqueeze_as(sigma, x) * torch.randn_like(x)
         pred = self.nn_module_wrapper(x_t, sigma)
@@ -121,12 +103,22 @@ class ScoreMatchingModel(nn.Module):
         else:
             raise AssertionError(f"Invalid {self.loss_type=}.")
 
-        loss_weights = (sigma ** 2 + self.sigma_data ** 2) / (sigma * self.sigma_data) ** 2
+        if self.loss_weighting_type == "ones":
+            loss_weights = torch.ones_like(sigma)
+        elif self.loss_weighting_type == "snr":
+            loss_weights = self.sigma_data ** 2 / sigma ** 2
+        elif self.loss_weighting_type == "min_snr":
+            loss_weights = torch.clamp(self.sigma_data ** 2 / sigma ** 2, max=5.0)
+        elif self.loss_weighting_type == "karras":
+            loss_weights = (sigma ** 2 + self.sigma_data ** 2) / (sigma * self.sigma_data) ** 2
+        else:
+            raise AssertionError(f"Invalid {self.loss_weighting_type=}.")
+
         loss *= unsqueeze_as(loss_weights, loss)
         return loss
 
     @torch.no_grad()
-    def sample(self, bsz, device, num_sampling_timesteps: int, use_heun_step: bool = False):
+    def sample(self, bsz, device, num_sampling_timesteps: int, dtype: torch.dtype = torch.float32):
         """
         Parameters
         ----------
@@ -141,25 +133,21 @@ class ScoreMatchingModel(nn.Module):
 
         Notes
         -----
-        This is deterministic for now, need to add stochastic sampler.
+        This is deterministic for now, solving the probability flow ODE.
         """
         assert num_sampling_timesteps >= 1
 
         linspace = torch.linspace(1.0, 0.0, num_sampling_timesteps + 1, device=device)
+        sigmas = self.test_sigma_schedule.get_sigma_ppf(linspace)
 
-        if self.test_sigma_schedule_type == "cosine":
-            sigmas = self.get_cosine_sigma_ppf(linspace, self.sigma_data, self.sigma_min, self.sigma_max)
-        elif self.test_sigma_schedule_type == "karras":
-            sigmas = self.get_karras_sigma_ppf(linspace, self.sigma_min, self.sigma_max, self.rho)
-        else:
-            raise AssertionError(f"Invalid {self.test_sigma_schedule_type}.")
+        sigma_start = torch.empty((bsz,), dtype=dtype, device=device)
+        sigma_end = torch.empty((bsz,), dtype=dtype, device=device)
 
-        sigma_start = torch.empty((bsz,), dtype=torch.float32, device=device)
-        sigma_end = torch.empty((bsz,), dtype=torch.float32, device=device)
-
-        x = torch.randn((bsz, *self.input_shape), device=device) * self.sigma_max
+        x = torch.randn((bsz, *self.input_shape), dtype=dtype, device=device) * self.sigma_max
         samples = torch.empty((num_sampling_timesteps + 1, bsz, *self.input_shape), device=device)
         samples[-1] = x * self.sigma_data / (self.sigma_max ** 2 + self.sigma_data ** 2) ** 0.5
+
+        self.sampler.reset()
 
         for idx, (scalar_sigma_start, scalar_sigma_end) in enumerate(zip(sigmas[:-1], sigmas[1:])):
 
@@ -167,19 +155,11 @@ class ScoreMatchingModel(nn.Module):
             sigma_end.fill_(scalar_sigma_end)
 
             pred_x_0 = self.nn_module_wrapper(x, sigma_start)
-            dx_dsigma = (x - pred_x_0) / scalar_sigma_start
-            dsigma = scalar_sigma_end - scalar_sigma_start
+            x = self.sampler.step(x, pred_x_0, scalar_sigma_start, scalar_sigma_end)
 
-            if use_heun_step and scalar_sigma_end > 0:
-                x_ = x + dx_dsigma * dsigma
-                pred_x_0_ = self.nn_module_wrapper(x_, sigma_end)
-                dx_dsigma_ = (x_ - pred_x_0_) / scalar_sigma_end
-                x = x + 0.5 * (dx_dsigma + dx_dsigma_) * dsigma
-            else:
-                x = x + dx_dsigma * dsigma
-
-            normalization_factor = self.sigma_data / (scalar_sigma_end ** 2 + self.sigma_data ** 2) ** 0.5
+            normalization_factor = (
+                self.sigma_data / (scalar_sigma_end ** 2 + self.sigma_data ** 2) ** 0.5
+            )
             samples[-1 - idx - 1] = x * normalization_factor
 
         return samples
-

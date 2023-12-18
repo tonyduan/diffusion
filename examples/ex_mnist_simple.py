@@ -9,7 +9,7 @@ import torch
 import torch.optim as optim
 
 from src.blocks import UNet
-from src.score_matching import ScoreMatchingModel, ScoreMatchingModelConfig
+from src.simple.diffusion import DiffusionModel, DiffusionModelConfig
 
 
 if __name__ == "__main__":
@@ -38,13 +38,14 @@ if __name__ == "__main__":
     x = ((x - input_mean) / input_sd).astype(np.float32)
 
     nn_module = UNet(1, 128, (1, 2, 4, 8))
-    model = ScoreMatchingModel(
+    model = DiffusionModel(
         nn_module=nn_module,
         input_shape=(1, 32, 32,),
-        config=ScoreMatchingModelConfig(
-            sigma_min=0.002,
-            sigma_max=80.0,
-            sigma_data=1.0,
+        config=DiffusionModelConfig(
+            num_timesteps=500,
+            target_type="pred_x_0",
+            gamma_type="ddim",
+            noise_schedule_type="cosine",
         ),
     )
     model = model.to(args.device)
@@ -64,7 +65,6 @@ if __name__ == "__main__":
         if i % 100 == 0:
             logger.info(f"Iter: {i}\t" + f"Loss: {loss.data:.2f}\t")
 
-    torch.save(model.state_dict(), "./ckpts/mnist_trained.pt")
     model.eval()
 
     samples = model.sample(bsz=64, num_sampling_timesteps=None, device=args.device).cpu().numpy()
