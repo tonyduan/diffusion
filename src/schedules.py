@@ -35,7 +35,7 @@ class CosineSchedule(NoiseSchedule):
         return math.atan(math.exp(-0.5 * logsnr_max))
 
     def get_sigma_ppf(self, p: torch.Tensor):
-        return torch.tan(self.theta_min + p * (self.theta_max - self.theta_min)) * self.kappa
+        return torch.tan(self.theta_min + p * (self.theta_max - self.theta_min)) / self.kappa
 
 
 @dataclass(frozen=True)

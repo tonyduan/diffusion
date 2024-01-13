@@ -8,7 +8,7 @@ def cosine_pdf(x, kappa):
     #
     # Equivalent to hyperbolic secant distribution (ignore truncation due to sigma_min, sigma_max).
     #
-    return 2 / np.pi / kappa / (1 + (np.exp(x) / kappa) ** 2) * np.exp(x)
+    return 1 / np.pi / np.cosh(x + np.log(kappa))
 
 def normal_pdf(x, loc, scale, sigma_min, sigma_max):
     #
