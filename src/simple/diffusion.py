@@ -44,8 +44,8 @@ class DiffusionModel(nn.Module):
         self.noise_schedule_type = config.noise_schedule_type
         self.loss_type = config.loss_type
 
-        # Input shape must be either (c,) or (c, h, w)
-        assert len(input_shape) in (1, 3)
+        # Input shape must be either (c,) or (c, h, w) or (c, t, h, w)
+        assert len(input_shape) in (1, 3, 4)
 
         # Construct the noise schedule
         if self.noise_schedule_type == "linear":

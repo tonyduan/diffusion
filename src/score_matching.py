@@ -48,8 +48,8 @@ class ScoreMatchingModel(nn.Module):
         self.input_shape = input_shape
         self.nn_module = nn_module
 
-        # Input shape must be either (c,) or (c, h, w)
-        assert len(input_shape) in (1, 3)
+        # Input shape must be either (c,) or (c, h, w) or (c, t, h, w)
+        assert len(input_shape) in (1, 3, 4)
 
         self.sigma_data = config.sigma_data
         self.sigma_min = config.sigma_min
