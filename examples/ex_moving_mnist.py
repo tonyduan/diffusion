@@ -10,6 +10,7 @@ import torch.optim as optim
 from torch.utils.data import Dataset, DataLoader
 
 from src.blocks_3d import UNet3d
+from src.schedules import CosineSchedule
 from src.score_matching import ScoreMatchingModel, ScoreMatchingModelConfig
 
 
@@ -109,6 +110,8 @@ if __name__ == "__main__":
             sigma_min=0.002,
             sigma_max=80.0,
             sigma_data=1.0,
+            train_sigma_schedule=CosineSchedule(kappa=0.25),
+            test_sigma_schedule=CosineSchedule(kappa=0.25),
         ),
     )
     model = model.to(args.device)
