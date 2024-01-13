@@ -26,7 +26,7 @@ It clocks in at well under 500 LOC.
 
 **Example Usage**
 
-Code below is copied from the MNIST file in the `examples/` directory, omitting boilerplate training code.
+Code below is copied from `examples/ex_mnist_simple.py`, omitting boilerplate training code.
 
 ```python
     # Initialization
