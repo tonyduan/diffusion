@@ -43,16 +43,18 @@ class FourierEmbedding(nn.Module):
     def __init__(self, dim, max_period=10000):
         super().__init__()
         assert dim % 2 == 0
-        self.dim = dim
-        self.max_period = max_period
+        self.register_buffer("freqs", self.make_freqs(dim, max_period))
 
     def forward(self, x):
         # Parameters
         #   x: (bsz,) continuous
-        freqs = torch.exp(torch.arange(0, self.dim, 2) * -math.log(self.max_period) / self.dim).to(x)
-        outer = torch.outer(x, freqs)
+        outer = torch.outer(x, self.freqs)
         embedding = torch.cat([torch.cos(outer), torch.sin(outer)], dim=-1)
         return embedding
+
+    @staticmethod
+    def make_freqs(dim, max_period=10000):
+        return torch.exp(torch.arange(0, dim, 2) * -math.log(max_period) / dim)
 
 
 class FFN(nn.Module):
